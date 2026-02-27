@@ -50,7 +50,7 @@ bool erase_block(struct Position *block, char **area){
     area[block[3].y][block[3].x] = EMPTY;
 }
 
-bool move_block(struct Position *block, char **area, char direction){
+bool move_block(struct Position *block, char **area, char direction){ //Not working, suspected to be causing segmentation fault
     erase_block(block, area);
 
     switch(direction){
@@ -92,7 +92,7 @@ int main(void) {
     //Game area initialization
     for(int i = 0; i < HEIGHT; i++){
         for(int j = 0; j < WIDTH; j++){
-            play_area[i][j] = ' ';
+            play_area[i][j] = EMPTY;
         }
     }
 
@@ -109,6 +109,7 @@ int main(void) {
     info.c_cc[VTIME] = 0; //No timeout
     tcsetattr(0, TCSANOW, &info); //Apply the settings now
 
+    //Test values
     block[0].y = 0;
     block[1].y = 0;
     block[2].y = 0;
@@ -119,6 +120,7 @@ int main(void) {
     block[2].x = 12;
     block[3].x = 13;
 
+    //Main game loop (to fix, only testing now)
     char input;
     while (input = getchar() != 'q') {
         switch(input){
@@ -144,6 +146,13 @@ int main(void) {
     tcgetattr(0, &info);
     info.c_lflag |= ICANON;
     tcsetattr(0, TCSANOW, &info);
+
+    //Freeing the play_area array
+    for(int i = 0; i < HEIGHT; i++) free(play_area[i]);
+    free(play_area);
+
+    //Freeing the block array
+    free(block);
 
     return 0;
 }
