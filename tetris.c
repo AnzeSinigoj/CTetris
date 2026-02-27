@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <time.h>
 #include <termios.h>
 
 //Global vars
@@ -16,8 +17,10 @@
 #define DELAY_5 125000   // 125 ms
 #define DELAY_6 100000   // 100 ms
 #define DELAY_7 75000    // 75 ms
-#define DELAY_8 50000     // 50 ms
-#define DELAY_9 25000     // 25 ms
+#define DELAY_8 50000    // 50 ms
+#define DELAY_9 25000    // 25 ms
+#define FPS_60  16667
+#define FPS_30  33333
 
 struct Position {
     u_int8_t x;
@@ -64,41 +67,152 @@ void draw_block(char **area, struct Position *block) {
     }
 }
 
-bool move_block(char **area, struct Position *block, char direction) {
+void move_block(char **area, struct Position *block, char direction) {
    erase_block(area, block);
 
     //TO DO: ADD EDGE CASES
     switch(direction){
         case 'l': //left
-            if((block[0].x -1) >= 0) block[0].x -= 1;
-            if((block[1].x -1) >= 0) block[1].x -= 1;
-            if((block[2].x -1) >= 0) block[2].x -= 1;
-            if((block[3].x -1) >= 0) block[3].x -= 1;
+            bool b0 = (block[0].x -1) >= 0;
+            bool b1 = (block[1].x -1) >= 0;
+            bool b2 = (block[2].x -1) >= 0;
+            bool b3 = (block[3].x -1) >= 0;
+            if(b0 && b1 && b2 && b3) {
+                block[0].x -= 1;
+                block[1].x -= 1;
+                block[2].x -= 1;
+                block[3].x -= 1;
+            }
             draw_block(area, block);
             break;
+
         case 'r': //right
-            if((block[0].x + 1) < WIDTH) block[0].x += 1;
-            if((block[1].x + 1) < WIDTH) block[1].x += 1;
-            if((block[2].x + 1) < WIDTH) block[2].x += 1;
-            if((block[3].x + 1) < WIDTH) block[3].x += 1;
+             b0 = (block[0].x + 1) < WIDTH;
+             b1 = (block[1].x + 1) < WIDTH;
+             b2 = (block[2].x + 1) < WIDTH;
+             b3 = (block[3].x + 1) < WIDTH;
+            if(b0 && b1 && b2 && b3) {
+                block[0].x += 1;
+                block[1].x += 1;
+                block[2].x += 1;
+                block[3].x += 1;
+            }
             draw_block(area, block);
             break;
+
         case 'd': //instant down
-            block[0].y = HEIGHT-1;
-            block[1].y = HEIGHT-1;
-            block[2].y = HEIGHT-1;
-            block[3].y = HEIGHT-1;
+            //TO DO
             draw_block(area, block);
             break;
+
         default: //one down
-            if((block[0].y + 1) < HEIGHT) block[0].y += 1;
-            if((block[1].y + 1) < HEIGHT) block[1].y += 1;
-            if((block[2].y + 1) < HEIGHT) block[2].y += 1;
-            if((block[3].y + 1) < HEIGHT) block[3].y += 1;
+             b0 = (block[0].y + 1) < HEIGHT;
+             b1 = (block[1].y + 1) < HEIGHT;
+             b2 = (block[2].y + 1) < HEIGHT;
+             b3 = (block[3].y + 1) < HEIGHT;
+            if(b0 && b1 && b2 && b3) {
+                block[0].y += 1;
+                block[1].y += 1;
+                block[2].y += 1;
+                block[3].y += 1;
+            }
             draw_block(area, block);
             break;
     }
 
+}
+
+/*
+ * Spawns block with the desired shape
+ * 0 = flat line
+ * 1 = square
+ * 2 = L facing right
+ * 3 = L facing left
+ * 4 = "squiggly" block facing right
+ * 5 = "squiggly" block facing left
+ * 6 = "pyramid"
+ */
+void spawn_block(u_int8_t block_type, char **area, struct Position  *block) {
+    switch(block_type) {
+        case 0:
+            block[0].y = 0;
+            block[1].y = 1;
+            block[2].y = 2;
+            block[3].y = 3;
+
+            block[0].x = 10;
+            block[1].x = 10;
+            block[2].x = 10;
+            block[3].x = 10;
+            break;
+        case 1:
+            block[0].y = 0;
+            block[1].y = 0;
+            block[2].y = 1;
+            block[3].y = 1;
+
+            block[0].x = 10;
+            block[1].x = 11;
+            block[2].x = 10;
+            block[3].x = 11;
+            break;
+        case 2:
+            block[0].y = 0;
+            block[1].y = 1;
+            block[2].y = 2;
+            block[3].y = 2;
+
+            block[0].x = 10;
+            block[1].x = 10;
+            block[2].x = 10;
+            block[3].x = 11;
+            break;
+        case 3:
+            block[0].y = 0;
+            block[1].y = 1;
+            block[2].y = 2;
+            block[3].y = 2;
+
+            block[0].x = 10;
+            block[1].x = 10;
+            block[2].x = 10;
+            block[3].x = 9;
+            break;
+        case 4:
+            block[0].y = 0;
+            block[1].y = 0;
+            block[2].y = 1;
+            block[3].y = 1;
+
+            block[0].x = 10;
+            block[1].x = 11;
+            block[2].x = 9;
+            block[3].x = 8;
+            break;
+        case 5:
+            block[0].y = 0;
+            block[1].y = 0;
+            block[2].y = 1;
+            block[3].y = 1;
+
+            block[0].x = 9;
+            block[1].x = 10;
+            block[2].x = 11;
+            block[3].x = 12;
+            break;
+        case 6:
+            block[0].y = 0;
+            block[1].y = 1;
+            block[2].y = 1;
+            block[3].y = 1;
+
+            block[0].x = 10;
+            block[1].x = 9;
+            block[2].x = 10;
+            block[3].x = 11;
+            break;
+    }
+    draw_block(area, block);
 }
 
 int main(void) {
@@ -124,38 +238,46 @@ int main(void) {
     struct termios info;
     tcgetattr(0, &info);
     info.c_lflag &= ~ICANON; //Disable canonical mode
-    info.c_cc[VMIN] = 0; //No waiting for keystrokes
+    info.c_cc[VMIN] = 0; //Not waiting for input
     info.c_cc[VTIME] = 0; //No timeout
     tcsetattr(0, TCSANOW, &info); //Apply the settings now
 
-    //Test values
-    block[0].y = 0;
-    block[1].y = 0;
-    block[2].y = 0;
-    block[3].y = 0;
+    //Main game loop
+    struct timespec start_time, stop_time;
+    clock_gettime(CLOCK_MONOTONIC, &start_time); //Get start time
 
-    block[0].x = 10;
-    block[1].x = 11;
-    block[2].x = 12;
-    block[3].x = 13;
-    draw_block(play_area, block);
-    //Main game loop (to fix, only testing now)
-    char input;
-    while (input = getchar() != 'q') {
+    spawn_block(0, play_area, block);
+    char input = '/';
+    while (true) {
         clear_screen();
         draw_area(play_area);
+
+        read(STDIN_FILENO, &input, 1); //Read char
         switch(input){
             case 'd':
-               move_block(play_area, block, 'l');
+                move_block(play_area, block, 'r');
+                input = '/';
                 break;
             case 'a':
-               move_block(play_area, block, 'r');
+                move_block(play_area, block, 'l');
+                input = '/';
                 break;
-            default:
-               move_block(play_area, block, 0);
+            case 's':
+                move_block(play_area, block, 'd');
+                input = '/';
                 break;
         }
-        usleep(DELAY_0);
+
+
+        clock_gettime(CLOCK_MONOTONIC, &stop_time); //Get stop time
+        //Getting the total enlapsed time in microseconds
+        long enlapsed = (stop_time.tv_sec - start_time.tv_sec) * 1000000L + (stop_time.tv_nsec - start_time.tv_nsec) / 1000;
+        if(enlapsed >= DELAY_2){
+            clock_gettime(CLOCK_MONOTONIC, &start_time); //Reset start time
+            move_block(play_area, block, '/');
+        }
+
+        usleep(FPS_60);
     }
 
     //Reseting the terminal back into canonical mode
