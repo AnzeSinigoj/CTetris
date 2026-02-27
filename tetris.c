@@ -8,11 +8,16 @@
 #define HEIGHT 15
 #define EMPTY ' '
 #define FULL '#'
-#define DELAY_0 1000000 // 100 ms
-#define DELAY_1 750000  // 75 ms
-#define DELAY_2 750000  // 75 ms
-#define DELAY_3 500000  // 50 ms
-#define DELAY_4 250000  // 25 ms
+#define DELAY_0 1000000  // 1000 ms
+#define DELAY_1 750000   // 750 ms
+#define DELAY_2 500000   // 500 ms
+#define DELAY_3 250000   // 250 ms
+#define DELAY_4 150000   // 150 ms
+#define DELAY_5 125000   // 125 ms
+#define DELAY_6 100000   // 100 ms
+#define DELAY_7 75000    // 75 ms
+#define DELAY_8 50000     // 50 ms
+#define DELAY_9 25000     // 25 ms
 
 struct Position {
     u_int8_t x;
@@ -43,40 +48,54 @@ void draw_area(char **area) {
     fflush(stdout);
 }
 
-bool erase_block(struct Position *block, char **area){
-    area[block[0].y][block[0].x] = EMPTY;
-    area[block[1].y][block[1].x] = EMPTY;
-    area[block[2].y][block[2].x] = EMPTY;
-    area[block[3].y][block[3].x] = EMPTY;
+void erase_block(char **area, struct Position *block){
+    for(int i = 0; i < 4; i++) {
+        u_int8_t tmp_x = block[i].x;
+        u_int8_t tmp_y = block[i].y;;
+        area[tmp_y][tmp_x] = EMPTY;
+    }
 }
 
-bool move_block(struct Position *block, char **area, char direction){ //Not working, suspected to be causing segmentation fault
-    erase_block(block, area);
+void draw_block(char **area, struct Position *block) {
+    for(int i = 0; i < 4; i++) {
+        u_int8_t tmp_x = block[i].x;
+        u_int8_t tmp_y = block[i].y;
+        area[tmp_y][tmp_x] = FULL;
+    }
+}
 
+bool move_block(char **area, struct Position *block, char direction) {
+   erase_block(area, block);
+
+    //TO DO: ADD EDGE CASES
     switch(direction){
         case 'l': //left
-            area[block[0].y][block[0].x -= 1] = FULL;
-            area[block[1].y][block[1].x -= 1] = FULL;
-            area[block[2].y][block[2].x -= 1] = FULL;
-            area[block[3].y][block[3].x -= 1] = FULL;
+            if((block[0].x -1) >= 0) block[0].x -= 1;
+            if((block[1].x -1) >= 0) block[1].x -= 1;
+            if((block[2].x -1) >= 0) block[2].x -= 1;
+            if((block[3].x -1) >= 0) block[3].x -= 1;
+            draw_block(area, block);
             break;
         case 'r': //right
-            area[block[0].y][block[0].x += 1] = FULL;
-            area[block[1].y][block[1].x += 1] = FULL;
-            area[block[2].y][block[2].x += 1] = FULL;
-            area[block[3].y][block[3].x += 1] = FULL;
+            if((block[0].x + 1) < WIDTH) block[0].x += 1;
+            if((block[1].x + 1) < WIDTH) block[1].x += 1;
+            if((block[2].x + 1) < WIDTH) block[2].x += 1;
+            if((block[3].x + 1) < WIDTH) block[3].x += 1;
+            draw_block(area, block);
             break;
         case 'd': //instant down
-            area[block[0].y][block[0].x] = FULL;
-            area[block[1].y][block[1].x] = FULL;
-            area[block[2].y][block[2].x] = FULL;
-            area[block[3].y][block[3].x] = FULL;
+            block[0].y = HEIGHT-1;
+            block[1].y = HEIGHT-1;
+            block[2].y = HEIGHT-1;
+            block[3].y = HEIGHT-1;
+            draw_block(area, block);
             break;
         default: //one down
-            area[block[0].y -= 1][block[0].x] = FULL;
-            area[block[1].y -= 1][block[1].x] = FULL;
-            area[block[2].y -= 1][block[2].x] = FULL;
-            area[block[3].y -= 1][block[3].x] = FULL;
+            if((block[0].y + 1) < HEIGHT) block[0].y += 1;
+            if((block[1].y + 1) < HEIGHT) block[1].y += 1;
+            if((block[2].y + 1) < HEIGHT) block[2].y += 1;
+            if((block[3].y + 1) < HEIGHT) block[3].y += 1;
+            draw_block(area, block);
             break;
     }
 
@@ -119,27 +138,24 @@ int main(void) {
     block[1].x = 11;
     block[2].x = 12;
     block[3].x = 13;
-
+    draw_block(play_area, block);
     //Main game loop (to fix, only testing now)
     char input;
     while (input = getchar() != 'q') {
-        switch(input){
-            case 'd':
-               move_block(block, play_area, 'l');
-                break;
-            case 'a':
-               move_block(block, play_area, 'r');
-                break;
-            default:
-               move_block(block, play_area, 0);
-                break;
-        }
-        move_block(block, play_area, 0);
-
         clear_screen();
         draw_area(play_area);
-
-        usleep(DELAY_1);
+        switch(input){
+            case 'd':
+               move_block(play_area, block, 'l');
+                break;
+            case 'a':
+               move_block(play_area, block, 'r');
+                break;
+            default:
+               move_block(play_area, block, 0);
+                break;
+        }
+        usleep(DELAY_0);
     }
 
     //Reseting the terminal back into canonical mode
