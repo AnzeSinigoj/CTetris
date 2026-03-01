@@ -51,15 +51,15 @@ void draw_area(char **area) {
     fflush(stdout);
 }
 
-void erase_block(char **area, struct Position *block){
+void erase_block(char **area, struct Position *block) { //Deletes block based on coordinates
     for(int i = 0; i < 4; i++) {
         u_int8_t tmp_x = block[i].x;
-        u_int8_t tmp_y = block[i].y;;
+        u_int8_t tmp_y = block[i].y;
         area[tmp_y][tmp_x] = EMPTY;
     }
 }
 
-void draw_block(char **area, struct Position *block) {
+void draw_block(char **area, struct Position *block) { //Translates the block coordinates into a drawn block
     for(int i = 0; i < 4; i++) {
         u_int8_t tmp_x = block[i].x;
         u_int8_t tmp_y = block[i].y;
@@ -67,59 +67,184 @@ void draw_block(char **area, struct Position *block) {
     }
 }
 
-void move_block(char **area, struct Position *block, char direction) {
+size_t find_biggest_y(struct Position *block) { //Find the highest y (the one which is the most "southern")
+    size_t index = 0;                           //Returns the index of the struct with the biggest y
+    u_int8_t max = block[0].y;
+    for(size_t i = 1; i < 4; i++) {
+        if(block[i].y > max) {
+            max = block[i].y;
+            index = i;
+        }
+    }
+    return index;
+}
+
+/*
+ * The function moves the block to the desired location and also keeps the block
+ * inside the bounds and also handles collision with other blocks.
+ * Returns true if the block has been placed and its possible to spawn a new one
+ */
+bool move_block(char **area, struct Position *block, char direction) {
    erase_block(area, block);
 
-    //TO DO: ADD EDGE CASES
+    bool bounds_ok, collision_ok;
+
     switch(direction){
         case 'l': //left
-            bool b0 = (block[0].x -1) >= 0;
-            bool b1 = (block[1].x -1) >= 0;
-            bool b2 = (block[2].x -1) >= 0;
-            bool b3 = (block[3].x -1) >= 0;
-            if(b0 && b1 && b2 && b3) {
+            bounds_ok = true;
+            collision_ok = true;
+
+            //Check for bounds
+            for(int i = 0; i < 4; i++) {
+                if((block[i].x -1) < 0){
+                    bounds_ok = false;
+                    break;
+                }
+            }
+
+            if(!bounds_ok) {  //Jump out early because condition is not met
+                move_block(area, block, '/'); //Move the block straight down
+            }
+
+            //Check for collision
+            for(int i = 0; i < 4; i++) {
+                u_int8_t tmp_x = block[i].x - 1; //Check the block after it
+                u_int8_t tmp_y = block[i].y;
+                if(area[tmp_y][tmp_x] == FULL){
+                    collision_ok = false;
+                    break;
+                }
+            }
+
+            if(bounds_ok && collision_ok) { //Move block only if both conditions are met
                 block[0].x -= 1;
                 block[1].x -= 1;
                 block[2].x -= 1;
                 block[3].x -= 1;
             }
-            draw_block(area, block);
             break;
 
         case 'r': //right
-             b0 = (block[0].x + 1) < WIDTH;
-             b1 = (block[1].x + 1) < WIDTH;
-             b2 = (block[2].x + 1) < WIDTH;
-             b3 = (block[3].x + 1) < WIDTH;
-            if(b0 && b1 && b2 && b3) {
+             bounds_ok = true;
+             collision_ok = true;
+
+            //Check for bounds
+            for(int i = 0; i < 4; i++) {
+                if((block[i].x +1) >= WIDTH){
+                    bounds_ok = false;
+                    break;
+                }
+            }
+
+            if(!bounds_ok) {  //Jump out early because condition is not met
+                move_block(area, block, '/'); //Move the block straight down
+            }
+
+
+            //Check for collision
+            for(int i = 0; i < 4; i++) {
+                u_int8_t tmp_x = block[i].x + 1; //Check the block after it
+                u_int8_t tmp_y = block[i].y;
+                if(area[tmp_y][tmp_x] == FULL){
+                    collision_ok = false;
+                    break;
+                }
+            }
+
+            if(bounds_ok && collision_ok) { //Move block only if both conditions are met
                 block[0].x += 1;
                 block[1].x += 1;
                 block[2].x += 1;
                 block[3].x += 1;
             }
-            draw_block(area, block);
             break;
 
-        case 'd': //instant down
-            //TO DO
-            draw_block(area, block);
-            break;
+        case 'd': //two down
+            bounds_ok = true;
+            collision_ok = true;
 
-        default: //one down
-             b0 = (block[0].y + 1) < HEIGHT;
-             b1 = (block[1].y + 1) < HEIGHT;
-             b2 = (block[2].y + 1) < HEIGHT;
-             b3 = (block[3].y + 1) < HEIGHT;
-            if(b0 && b1 && b2 && b3) {
+            //Check for bounds
+            for(int i = 0; i < 4; i++) {
+                if((block[i].y +1)  >= HEIGHT){
+                    bounds_ok = false;
+                    break;
+                }
+            }
+
+            if(!bounds_ok) {  //Jump out early because condition is not met
+                draw_block(area, block);
+                return true;
+            }
+
+            //Check for collision
+            size_t index_y = find_biggest_y(block);
+            u_int8_t tmp = block[index_y].y;
+            for(int i = 0; i < 4; i++) {
+                if(block[i].y == tmp){
+                    u_int8_t tmp_x = block[i].x;
+                    u_int8_t tmp_y = block[i].y + 1; //Check the block after it
+                    if(area[tmp_y][tmp_x] == FULL){
+                        collision_ok = false;
+                        break;
+                    }
+                }
+            }
+
+            if(bounds_ok && collision_ok) { //Move block only if both conditions are met
                 block[0].y += 1;
                 block[1].y += 1;
                 block[2].y += 1;
                 block[3].y += 1;
+            } else{
+                draw_block(area, block);
+                return true;
             }
-            draw_block(area, block);
+            break;
+
+        default: //one down
+             bounds_ok = true;
+             collision_ok = true;
+
+            //Check for bounds
+            for(int i = 0; i < 4; i++) {
+                if((block[i].y +1)  >= HEIGHT){
+                    bounds_ok = false;
+                    break;
+                }
+            }
+
+            if(!bounds_ok) {  //Jump out early because condition is not met
+                draw_block(area, block);
+                return true;
+            }
+
+            //Check for collision
+             index_y = find_biggest_y(block);
+             tmp = block[index_y].y;
+            for(int i = 0; i < 4; i++) {
+                if(block[i].y == tmp){
+                    u_int8_t tmp_x = block[i].x;
+                    u_int8_t tmp_y = block[i].y + 1; //Check the block after it
+                    if(area[tmp_y][tmp_x] == FULL){
+                        collision_ok = false;
+                        break;
+                    }
+                }
+            }
+
+            if(bounds_ok && collision_ok) { //Move block only if both conditions are met
+                block[0].y += 1;
+                block[1].y += 1;
+                block[2].y += 1;
+                block[3].y += 1;
+            } else{
+                draw_block(area, block);
+                return true;
+            }
             break;
     }
-
+     draw_block(area, block);
+     return false;
 }
 
 /*
@@ -132,7 +257,9 @@ void move_block(char **area, struct Position *block, char direction) {
  * 5 = "squiggly" block facing left
  * 6 = "pyramid"
  */
-void spawn_block(u_int8_t block_type, char **area, struct Position  *block) {
+void spawn_block(char **area, struct Position  *block) {
+    srand(time(NULL));
+    int block_type = rand() % 7;
     switch(block_type) {
         case 0:
             block[0].y = 0;
@@ -246,35 +373,36 @@ int main(void) {
     struct timespec start_time, stop_time;
     clock_gettime(CLOCK_MONOTONIC, &start_time); //Get start time
 
-    spawn_block(0, play_area, block);
+    spawn_block(play_area, block);
     char input = '/';
     while (true) {
         clear_screen();
         draw_area(play_area);
 
+
         read(STDIN_FILENO, &input, 1); //Read char
+        printf("%c", input);
         switch(input){
             case 'd':
-                move_block(play_area, block, 'r');
+                if(move_block(play_area, block, 'r')) spawn_block(play_area, block);
                 input = '/';
                 break;
             case 'a':
-                move_block(play_area, block, 'l');
+                if(move_block(play_area, block, 'l')) spawn_block(play_area, block);
                 input = '/';
                 break;
             case 's':
-                move_block(play_area, block, 'd');
+                if(move_block(play_area, block, 'd')) spawn_block(play_area, block);
                 input = '/';
                 break;
         }
-
 
         clock_gettime(CLOCK_MONOTONIC, &stop_time); //Get stop time
         //Getting the total enlapsed time in microseconds
         long enlapsed = (stop_time.tv_sec - start_time.tv_sec) * 1000000L + (stop_time.tv_nsec - start_time.tv_nsec) / 1000;
         if(enlapsed >= DELAY_2){
             clock_gettime(CLOCK_MONOTONIC, &start_time); //Reset start time
-            move_block(play_area, block, '/');
+            if(move_block(play_area, block, '/')) spawn_block(play_area, block);
         }
 
         usleep(FPS_60);
