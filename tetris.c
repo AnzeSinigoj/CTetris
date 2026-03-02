@@ -102,9 +102,7 @@ bool move_block(char **area, struct Position *block, char direction) {
                 }
             }
 
-            if(!bounds_ok) {  //Jump out early because condition is not met
-                move_block(area, block, '/'); //Move the block straight down
-            }
+            if(!bounds_ok) break;  //Jump out early because condition is not met
 
             //Check for collision
             for(int i = 0; i < 4; i++) {
@@ -136,10 +134,7 @@ bool move_block(char **area, struct Position *block, char direction) {
                 }
             }
 
-            if(!bounds_ok) {  //Jump out early because condition is not met
-                move_block(area, block, '/'); //Move the block straight down
-            }
-
+            if(!bounds_ok) break;  //Jump out early because condition is not met
 
             //Check for collision
             for(int i = 0; i < 4; i++) {
@@ -171,10 +166,7 @@ bool move_block(char **area, struct Position *block, char direction) {
                 }
             }
 
-            if(!bounds_ok) {  //Jump out early because condition is not met
-                draw_block(area, block);
-                return true;
-            }
+            if(!bounds_ok) break;  //Jump out early because condition is not met
 
             //Check for collision
             size_t index_y = find_biggest_y(block);
@@ -213,7 +205,7 @@ bool move_block(char **area, struct Position *block, char direction) {
                 }
             }
 
-            if(!bounds_ok) {  //Jump out early because condition is not met
+            if(!bounds_ok) { //Jump out early because condition is not met
                 draw_block(area, block);
                 return true;
             }
