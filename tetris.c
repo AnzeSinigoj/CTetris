@@ -3,9 +3,10 @@
 #include <unistd.h>
 #include <time.h>
 #include <termios.h>
+#include <string.h>
 
 //Global vars
-#define WIDTH 20
+#define WIDTH  20
 #define HEIGHT 15
 #define EMPTY ' '
 #define FULL '#'
@@ -38,7 +39,7 @@ void draw_horizontal_line() {
     printf("+>\n");
 }
 
-void draw_area(char **area) {
+void draw_area(char **area, int score) {
     draw_horizontal_line();
     for (int i = 0; i < HEIGHT; i++) {
         printf("<!");
@@ -48,10 +49,12 @@ void draw_area(char **area) {
         printf("!>\n");
     }
     draw_horizontal_line();
+    printf("Score: %d\n", score);
     fflush(stdout);
 }
 
-void erase_block(char **area, struct Position *block) { //Deletes block based on coordinates
+//Deletes block based on coordinates
+void erase_block(char **area, struct Position *block) {
     for(int i = 0; i < 4; i++) {
         u_int8_t tmp_x = block[i].x;
         u_int8_t tmp_y = block[i].y;
@@ -59,7 +62,8 @@ void erase_block(char **area, struct Position *block) { //Deletes block based on
     }
 }
 
-void draw_block(char **area, struct Position *block) { //Translates the block coordinates into a drawn block
+//Translates the block coordinates into a drawn block
+void draw_block(char **area, struct Position *block) {
     for(int i = 0; i < 4; i++) {
         u_int8_t tmp_x = block[i].x;
         u_int8_t tmp_y = block[i].y;
@@ -67,8 +71,11 @@ void draw_block(char **area, struct Position *block) { //Translates the block co
     }
 }
 
-size_t find_biggest_y(struct Position *block) { //Find the highest y (the one which is the most "southern")
-    size_t index = 0;                           //Returns the index of the struct with the biggest y
+/* Finds the highest y (the one which is the most "southern")
+ * Returns the index of the struct with the biggest y
+ */
+size_t find_biggest_y(struct Position *block) {
+    size_t index = 0;
     u_int8_t max = block[0].y;
     for(size_t i = 1; i < 4; i++) {
         if(block[i].y > max) {
@@ -249,7 +256,7 @@ bool move_block(char **area, struct Position *block, char direction) {
  * 5 = "squiggly" block facing left
  * 6 = "pyramid"
  */
-void spawn_block(char **area, struct Position  *block) {
+void spawn_block(char **area, struct Position *block) {
     srand(time(NULL));
     int block_type = rand() % 7;
     switch(block_type) {
@@ -334,6 +341,50 @@ void spawn_block(char **area, struct Position  *block) {
     draw_block(area, block);
 }
 
+// Function clears the specified line and moves the remains of blocks down
+void clear_line(char ** area, size_t line) {
+    //Cler the full line
+    for(size_t i = 0; i < WIDTH; i++) {
+        area[line][i] = EMPTY;
+    }
+
+    //Move the blocks down
+    for(size_t i = line; i > 0; i--) {
+        for(size_t j = 0; j < WIDTH; j++) {
+            if(area[i-1][j] == FULL) {
+                area[i-1][j] = EMPTY;
+                area[i][j] = FULL;
+            }
+        }
+    }
+}
+
+/* Function checks for completed lines and incrementes the score appropriately
+*  n lines = n*100 points
+*/
+void check_lines(char ** area, int *score) {
+    u_int8_t total_lines = 0;
+    u_int8_t row_sum = 0;
+
+    //Count the score
+    for(size_t i = 0; i < HEIGHT; i++) {
+        for(size_t j = 0; j < WIDTH; j++) {
+            if(area[i][j] == FULL) row_sum++;
+        }
+        if(row_sum == WIDTH) {
+            clear_line(area, i);
+            total_lines++;
+        }
+        row_sum = 0;
+    }
+    *score += (int)total_lines*100;
+}
+
+//Function rotates the block clockwise
+void rotate_block(struct Position block) {
+    //To Do
+}
+
 int main(void) {
     //Game area declaration on the heap
     char **play_area = malloc(HEIGHT * sizeof(char*));
@@ -353,6 +404,10 @@ int main(void) {
     struct Position tmp = {0,0};
     for(int i = 0; i < 4; i++) block[i] = tmp;
 
+    //Block type declaration and initialization
+    char *block_type = malloc(sizeoff(char));
+    *block_type = '/'; //Slash means the block has not spawned yet
+
     //Setting the terminal into the right mode
     struct termios info;
     tcgetattr(0, &info);
@@ -365,26 +420,31 @@ int main(void) {
     struct timespec start_time, stop_time;
     clock_gettime(CLOCK_MONOTONIC, &start_time); //Get start time
 
-    spawn_block(play_area, block);
     char input = '/';
+    int score = 0;
+    spawn_block(play_area, block, block_type);
     while (true) {
         clear_screen();
-        draw_area(play_area);
-
+        draw_area(play_area, score);
+        check_lines(play_area, &score);
 
         read(STDIN_FILENO, &input, 1); //Read char
         printf("%c", input);
         switch(input){
             case 'd':
-                if(move_block(play_area, block, 'r')) spawn_block(play_area, block);
+                if(move_block(play_area, block, 'r')) spawn_block(play_area, block, block_type);
                 input = '/';
                 break;
             case 'a':
-                if(move_block(play_area, block, 'l')) spawn_block(play_area, block);
+                if(move_block(play_area, block, 'l')) spawn_block(play_area, block, block_type);
                 input = '/';
                 break;
             case 's':
-                if(move_block(play_area, block, 'd')) spawn_block(play_area, block);
+                if(move_block(play_area, block, 'd')) spawn_block(play_area, block, block_type);
+                input = '/';
+                break;
+            case 'x':
+                rotate_block(block, block_type);
                 input = '/';
                 break;
         }
@@ -394,7 +454,7 @@ int main(void) {
         long enlapsed = (stop_time.tv_sec - start_time.tv_sec) * 1000000L + (stop_time.tv_nsec - start_time.tv_nsec) / 1000;
         if(enlapsed >= DELAY_2){
             clock_gettime(CLOCK_MONOTONIC, &start_time); //Reset start time
-            if(move_block(play_area, block, '/')) spawn_block(play_area, block);
+            if(move_block(play_area, block, '/')) spawn_block(play_area, block, block_type);
         }
 
         usleep(FPS_60);
@@ -411,6 +471,9 @@ int main(void) {
 
     //Freeing the block array
     free(block);
+
+    //Freeing block type
+    free(block_type);
 
     return 0;
 }
