@@ -256,10 +256,10 @@ bool move_block(char **area, struct Position *block, char direction) {
  * 5 = "squiggly" block facing left
  * 6 = "pyramid"
  */
-void spawn_block(char **area, struct Position *block) {
+void spawn_block(char **area, struct Position *block, int *block_type) {
     srand(time(NULL));
-    int block_type = rand() % 7;
-    switch(block_type) {
+    *block_type = rand() % 7;
+    switch(*block_type) {
         case 0:
             block[0].y = 0;
             block[1].y = 1;
@@ -381,8 +381,25 @@ void check_lines(char ** area, int *score) {
 }
 
 //Function rotates the block clockwise
-void rotate_block(struct Position block) {
-    //To Do
+void rotate_block(struct Position * block, int *block_type, int *rotation_count) {
+    switch(block_type) {
+        case 0:
+            break;
+        case 1:
+            break;
+        case 2:
+            break;
+        case 3:
+            break;
+        case 4:
+            break;
+        case 5:
+            break;
+        case 6:
+            break;
+        default: //Block has not spawned yet / issiue with block_type variable
+            break;
+    }
 }
 
 int main(void) {
@@ -405,8 +422,12 @@ int main(void) {
     for(int i = 0; i < 4; i++) block[i] = tmp;
 
     //Block type declaration and initialization
-    char *block_type = malloc(sizeoff(char));
-    *block_type = '/'; //Slash means the block has not spawned yet
+    int *block_type = malloc(sizeof(int));
+    *block_type = -1; //Slash means the block has not spawned yet
+
+    //Rotation count declaration and initialization
+    int *rotation_count = malloc(sizeof(int));
+    *rotation_count = -1;
 
     //Setting the terminal into the right mode
     struct termios info;

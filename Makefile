@@ -5,4 +5,5 @@ run: tetris
 	./tetris
 
 clean:
-	rm -f tetris
+	rm -fv tetris
+
