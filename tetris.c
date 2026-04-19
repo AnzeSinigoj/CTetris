@@ -25,6 +25,7 @@
 #define FPS_30  33333
 
 //Global vars
+bool main_loop = true;
 bool running = true;
 
 struct Position {
@@ -80,7 +81,7 @@ int main(void) {
     char input = '/';
     int score = 0;
     spawn_block(play_area, block, block_type);
-    while (running) {
+    while (main_loop) {
         clear_screen();
         draw_area(play_area, score);
         check_lines(play_area, &score);
@@ -105,14 +106,14 @@ int main(void) {
                 input = '/';
                 break;
             case 'e':
-                running = false;
+                main_loop = false;
                 break;
         }
 
         clock_gettime(CLOCK_MONOTONIC, &stop_time); //Get stop time
         //Getting the total enlapsed time in microseconds
         long enlapsed = (stop_time.tv_sec - start_time.tv_sec) * 1000000L + (stop_time.tv_nsec - start_time.tv_nsec) / 1000;
-        if(enlapsed >= DELAY_2){
+        if(enlapsed >= DELAY_2  && running){
             clock_gettime(CLOCK_MONOTONIC, &start_time); //Reset start time
             if(move_block(play_area, block, '/')) spawn_block(play_area, block, block_type);
         }
@@ -450,10 +451,8 @@ void spawn_block(char area[][WIDTH], struct Position *block, int block_type) {
 
 // Function clears the specified line and moves the remains of blocks down
 void clear_line(char area[][WIDTH], size_t line) {
-    //Cler the full line
-    for(size_t i = 0; i < WIDTH; i++) {
-        area[line][i] = EMPTY;
-    }
+    //Clear line
+    for(size_t i = 0; i < WIDTH; i++) area[line][i] = EMPTY; 
 
     //Move the blocks down
     for(size_t i = line; i > 0; i--) {
@@ -463,13 +462,15 @@ void clear_line(char area[][WIDTH], size_t line) {
                 area[i][j] = FULL;
             }
         }
-    }
+    }    
 }
 
 /* Function checks for completed lines and incrementes the score appropriately
  *  n lines = n*100 points
  */
 void check_lines(char area[][WIDTH], int *score) {
+    running = false;
+
     u_int8_t total_lines = 0;
     u_int8_t row_sum = 0;
 
@@ -485,6 +486,8 @@ void check_lines(char area[][WIDTH], int *score) {
         row_sum = 0;
     }
     *score += (int)total_lines*100;
+
+    running = true;
 }
 
 //Function rotates the block clockwise
@@ -492,7 +495,7 @@ void rotate_block(char area[][WIDTH], struct Position * block) {
     bool check_square_y = (block[0].y == block[1].y) && (block[2].y == block[3].y);
     bool check_square_x = (block[0].x == block[2].x) && (block[1].x == block[3].x);
     if(check_square_x && check_square_y) return; //Do not rotate if its a square
-    
+
     struct Position tmp_arr[4];
     bool is_writable = true;
 
