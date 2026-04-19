@@ -7,9 +7,9 @@
 #include <stdbool.h>
 
 //Macros
-#define WIDTH  20
-#define HEIGHT 15
-#define EMPTY ' '
+#define WIDTH  10
+#define HEIGHT 20
+#define EMPTY '.'
 #define FULL '#'
 #define DELAY_0 1000000  // 1000 ms
 #define DELAY_1 750000   // 750 ms
@@ -136,7 +136,7 @@ void clear_screen() {
 
 void draw_horizontal_line() {
     printf("<+");
-    for (int i = 0; i < WIDTH; i++) printf("-");
+    for (int i = 0; i < WIDTH*3; i++) printf("-"); //*3 because of the extra 2 spaces in " %c " in draw_area()
     printf("+>\n");
 }
 
@@ -145,7 +145,11 @@ void draw_area(char area[][WIDTH], int score) {
     for (int i = 0; i < HEIGHT; i++) {
         printf("<!");
         for (int j = 0; j < WIDTH; j++) {
-            printf("%c", area[i][j]);
+            if(area[i][j] == FULL) {
+                printf( " %s ", "■");
+            } else{
+                printf(" %c ", EMPTY);
+            }
         }
         printf("!>\n");
     }
@@ -360,6 +364,8 @@ bool move_block(char area[][WIDTH], struct Position *block, char direction) {
 void spawn_block(char area[][WIDTH], struct Position *block, int block_type) {
     srand(time(NULL));
     block_type = rand() % 7;
+    uint mid = WIDTH/2;
+
     switch(block_type) {
         case 0:
             block[0].y = 0;
@@ -367,10 +373,10 @@ void spawn_block(char area[][WIDTH], struct Position *block, int block_type) {
             block[2].y = 2;
             block[3].y = 3;
 
-            block[0].x = 10;
-            block[1].x = 10;
-            block[2].x = 10;
-            block[3].x = 10;
+            block[0].x = mid;
+            block[1].x = mid;
+            block[2].x = mid;
+            block[3].x = mid;
             break;
         case 1:
             block[0].y = 0;
@@ -378,10 +384,10 @@ void spawn_block(char area[][WIDTH], struct Position *block, int block_type) {
             block[2].y = 1;
             block[3].y = 1;
 
-            block[0].x = 10;
-            block[1].x = 11;
-            block[2].x = 10;
-            block[3].x = 11;
+            block[0].x = mid;
+            block[1].x = mid+1;
+            block[2].x = mid;
+            block[3].x = mid+1;
             break;
         case 2:
             block[0].y = 0;
@@ -389,10 +395,10 @@ void spawn_block(char area[][WIDTH], struct Position *block, int block_type) {
             block[2].y = 2;
             block[3].y = 2;
 
-            block[0].x = 10;
-            block[1].x = 10;
-            block[2].x = 10;
-            block[3].x = 11;
+            block[0].x = mid;
+            block[1].x = mid;
+            block[2].x = mid;
+            block[3].x = mid+1;
             break;
         case 3:
             block[0].y = 0;
@@ -400,10 +406,10 @@ void spawn_block(char area[][WIDTH], struct Position *block, int block_type) {
             block[2].y = 2;
             block[3].y = 2;
 
-            block[0].x = 10;
-            block[1].x = 10;
-            block[2].x = 10;
-            block[3].x = 9;
+            block[0].x = mid;
+            block[1].x = mid;
+            block[2].x = mid;
+            block[3].x = mid-1;
             break;
         case 4:
             block[0].y = 0;
@@ -411,10 +417,10 @@ void spawn_block(char area[][WIDTH], struct Position *block, int block_type) {
             block[2].y = 1;
             block[3].y = 1;
 
-            block[0].x = 10;
-            block[1].x = 11;
-            block[2].x = 9;
-            block[3].x = 8;
+            block[0].x = mid-1;
+            block[1].x = mid;
+            block[2].x = mid-1;
+            block[3].x = mid-2;
             break;
         case 5:
             block[0].y = 0;
@@ -422,10 +428,10 @@ void spawn_block(char area[][WIDTH], struct Position *block, int block_type) {
             block[2].y = 1;
             block[3].y = 1;
 
-            block[0].x = 9;
-            block[1].x = 10;
-            block[2].x = 11;
-            block[3].x = 12;
+            block[0].x = mid-2;
+            block[1].x = mid-1;
+            block[2].x = mid-1;
+            block[3].x = mid;
             break;
         case 6:
             block[0].y = 0;
@@ -433,10 +439,10 @@ void spawn_block(char area[][WIDTH], struct Position *block, int block_type) {
             block[2].y = 1;
             block[3].y = 1;
 
-            block[0].x = 10;
-            block[1].x = 9;
-            block[2].x = 10;
-            block[3].x = 11;
+            block[0].x = mid;
+            block[1].x = mid-1;
+            block[2].x = mid;
+            block[3].x = mid+1;
             break;
     }
     draw_block(area, block);
@@ -483,14 +489,18 @@ void check_lines(char area[][WIDTH], int *score) {
 
 //Function rotates the block clockwise
 void rotate_block(char area[][WIDTH], struct Position * block) {
+    bool check_square_y = (block[0].y == block[1].y) && (block[2].y == block[3].y);
+    bool check_square_x = (block[0].x == block[2].x) && (block[1].x == block[3].x);
+    if(check_square_x && check_square_y) return; //Do not rotate if its a square
+    
     struct Position tmp_arr[4];
     bool is_writable = true;
 
-    int pivot_x = block[0].x;
-    int pivot_y = block[0].y;
+    int pivot_x = block[2].x;
+    int pivot_y = block[2].y;
 
     erase_block(area, block);
-    for(size_t i = 0; i < 4; i++) {
+    for(size_t i = 0; i < 4; i++) {  
         int tmp_x = block[i].x;
         int tmp_y = block[i].y;
 
