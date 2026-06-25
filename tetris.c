@@ -26,7 +26,6 @@
 
 //Global vars
 bool main_loop = true;
-bool running = true;
 
 struct Position {
     u_int8_t x;
@@ -42,17 +41,16 @@ void draw_area(char area[][WIDTH], int score);
 void erase_block(char area[][WIDTH], struct Position *block);
 void draw_block(char area[][WIDTH], struct Position *block);
 bool move_block(char area[][WIDTH], struct Position *block, char direction);
-void spawn_block(char area[][WIDTH], struct Position *block, int block_type);
+void spawn_block(char area[][WIDTH], struct Position *block);
 void rotate_block(char area[][WIDTH], struct Position *block);
 
 //Score counting functions
 void check_lines(char area[][WIDTH], int *score);
 void clear_line(char area[][WIDTH], size_t line);
 
-//Helper functions
-size_t find_biggest_y(struct Position *block);
-
 int main(void) {
+    srand(time(NULL));
+
     //Game area declaration
     char play_area[HEIGHT][WIDTH];
 
@@ -64,58 +62,73 @@ int main(void) {
     }
 
     struct Position block[4];
-    int block_type = -1; //-1 means the block has not spawned yet
 
     //Setting the terminal into the right mode
     struct termios info;
     tcgetattr(0, &info);
-    info.c_lflag &= ~ICANON; //Disable canonical mode
-    info.c_cc[VMIN] = 0; //Not waiting for input
-    info.c_cc[VTIME] = 0; //No timeout
-    tcsetattr(0, TCSANOW, &info); //Apply
+    info.c_lflag &= ~ICANON;
+    info.c_cc[VMIN] = 0;
+    info.c_cc[VTIME] = 0;
+    tcsetattr(0, TCSANOW, &info);
 
-    //Main game loop
     struct timespec start_time, stop_time;
-    clock_gettime(CLOCK_MONOTONIC, &start_time); //Get start time
+    clock_gettime(CLOCK_MONOTONIC, &start_time);
 
     char input = '/';
     int score = 0;
-    spawn_block(play_area, block, block_type);
+    bool landed = false;
+    spawn_block(play_area, block);
+
     while (main_loop) {
         clear_screen();
         draw_area(play_area, score);
-        check_lines(play_area, &score);
 
-        read(STDIN_FILENO, &input, 1); //Read char
-        printf("%c", input);
+        read(STDIN_FILENO, &input, 1);
+        bool can_spawn = false;
+
         switch(input){
             case 'd':
-                if(move_block(play_area, block, 'r')) spawn_block(play_area, block, block_type);
+                if(!landed) can_spawn = move_block(play_area, block, 'r');
+                if(can_spawn) landed = true;
                 input = '/';
                 break;
             case 'a':
-                if(move_block(play_area, block, 'l')) spawn_block(play_area, block, block_type);
+                if(!landed) can_spawn = move_block(play_area, block, 'l');
+                if(can_spawn) landed = true;
                 input = '/';
                 break;
             case 's':
-                if(move_block(play_area, block, 'd')) spawn_block(play_area, block, block_type);
+                if(!landed) can_spawn = move_block(play_area, block, 'd');
+                if(can_spawn) landed = true;
+                clock_gettime(CLOCK_MONOTONIC, &start_time);
                 input = '/';
                 break;
             case 'x':
-                rotate_block(play_area, block);
+                if(!landed) rotate_block(play_area, block);
                 input = '/';
                 break;
             case 'e':
                 main_loop = false;
                 break;
+            default:
+                clock_gettime(CLOCK_MONOTONIC, &stop_time);
+                long enlapsed = (stop_time.tv_sec - start_time.tv_sec) * 1000000L + (stop_time.tv_nsec - start_time.tv_nsec) / 1000;
+                if(enlapsed >= DELAY_2 && !landed){
+                    clock_gettime(CLOCK_MONOTONIC, &start_time);
+                    can_spawn = move_block(play_area, block, '/');
+                    if(can_spawn) landed = true;
+                }
+                input = '/';
+                break;
         }
 
-        clock_gettime(CLOCK_MONOTONIC, &stop_time); //Get stop time
-        //Getting the total enlapsed time in microseconds
-        long enlapsed = (stop_time.tv_sec - start_time.tv_sec) * 1000000L + (stop_time.tv_nsec - start_time.tv_nsec) / 1000;
-        if(enlapsed >= DELAY_2  && running){
-            clock_gettime(CLOCK_MONOTONIC, &start_time); //Reset start time
-            if(move_block(play_area, block, '/')) spawn_block(play_area, block, block_type);
+        if(!can_spawn) erase_block(play_area, block);
+        check_lines(play_area, &score);
+        if(!can_spawn) draw_block(play_area, block);
+        
+        if(can_spawn) {
+            spawn_block(play_area, block);
+            landed = false;
         }
 
         usleep(FPS_60);
@@ -125,7 +138,6 @@ int main(void) {
     tcgetattr(0, &info);
     info.c_lflag |= ICANON;
     tcsetattr(0, TCSANOW, &info);
-
 
     return 0;
 }
@@ -175,21 +187,6 @@ void draw_block(char area[][WIDTH], struct Position *block) {
         u_int8_t tmp_y = block[i].y;
         area[tmp_y][tmp_x] = FULL;
     }
-}
-
-/* Finds the highest y (the one which is the most "southern")
- * Returns the index of the struct with the biggest y
- */
-size_t find_biggest_y(struct Position *block) {
-    size_t index = 0;
-    u_int8_t max = block[0].y;
-    for(size_t i = 1; i < 4; i++) {
-        if(block[i].y > max) {
-            max = block[i].y;
-            index = i;
-        }
-    }
-    return index;
 }
 
 /*
@@ -279,32 +276,39 @@ bool move_block(char area[][WIDTH], struct Position *block, char direction) {
                 }
             }
 
-            if(!bounds_ok) break;  //Jump out early because condition is not met
+            if(!bounds_ok) {
+                draw_block(area, block);
+                return true;
+            } //Jump out early because condition is not met
 
-        //Check for collision
-        size_t index_y = find_biggest_y(block);
-        u_int8_t tmp = block[index_y].y;
-        for(int i = 0; i < 4; i++) {
-            if(block[i].y == tmp){
+            //Check for collision
+            for(int i = 0; i < 4; i++) {
                 u_int8_t tmp_x = block[i].x;
-                u_int8_t tmp_y = block[i].y + 1; //Check the block after it
-                if(area[tmp_y][tmp_x] == FULL){
+                u_int8_t tmp_y = block[i].y + 1;
+                bool is_self = false;
+                for(int j = 0; j < 4; j++) {
+                    if(block[j].x == tmp_x && block[j].y == tmp_y) {
+                        is_self = true;
+                        break;
+                    }
+                }
+                if(!is_self && area[tmp_y][tmp_x] == FULL) {
                     collision_ok = false;
                     break;
                 }
             }
-        }
 
-        if(bounds_ok && collision_ok) { //Move block only if both conditions are met
-            block[0].y += 1;
-            block[1].y += 1;
-            block[2].y += 1;
-            block[3].y += 1;
-        } else{
-            draw_block(area, block);
-            return true;
-        }
-        break;
+            if(bounds_ok && collision_ok) {
+                block[0].y += 1;
+                block[1].y += 1;
+                block[2].y += 1;
+                block[3].y += 1;
+            } else {
+                draw_block(area, block);
+                return true;
+            }
+
+            break;
 
         default: //one down
             bounds_ok = true;
@@ -324,25 +328,28 @@ bool move_block(char area[][WIDTH], struct Position *block, char direction) {
             }
 
             //Check for collision
-            index_y = find_biggest_y(block);
-            tmp = block[index_y].y;
             for(int i = 0; i < 4; i++) {
-                if(block[i].y == tmp){
-                    u_int8_t tmp_x = block[i].x;
-                    u_int8_t tmp_y = block[i].y + 1; //Check the block after it
-                    if(area[tmp_y][tmp_x] == FULL){
-                        collision_ok = false;
+                u_int8_t tmp_x = block[i].x;
+                u_int8_t tmp_y = block[i].y + 1;
+                bool is_self = false;
+                for(int j = 0; j < 4; j++) {
+                    if(block[j].x == tmp_x && block[j].y == tmp_y) {
+                        is_self = true;
                         break;
                     }
                 }
+                if(!is_self && area[tmp_y][tmp_x] == FULL) {
+                    collision_ok = false;
+                    break;
+                }
             }
 
-            if(bounds_ok && collision_ok) { //Move block only if both conditions are met
+            if(bounds_ok && collision_ok) {
                 block[0].y += 1;
                 block[1].y += 1;
                 block[2].y += 1;
                 block[3].y += 1;
-            } else{
+            } else {
                 draw_block(area, block);
                 return true;
             }
@@ -362,9 +369,8 @@ bool move_block(char area[][WIDTH], struct Position *block, char direction) {
  * 5 = "squiggly" block facing left
  * 6 = "pyramid"
  */
-void spawn_block(char area[][WIDTH], struct Position *block, int block_type) {
-    srand(time(NULL));
-    block_type = rand() % 7;
+void spawn_block(char area[][WIDTH], struct Position *block) {
+    int block_type = rand() % 7;
     uint mid = WIDTH/2;
 
     switch(block_type) {
@@ -457,20 +463,13 @@ void clear_line(char area[][WIDTH], size_t line) {
     //Move the blocks down
     for(size_t i = line; i > 0; i--) {
         for(size_t j = 0; j < WIDTH; j++) {
-            if(area[i-1][j] == FULL) {
-                area[i-1][j] = EMPTY;
-                area[i][j] = FULL;
-            }
+            area[i][j] = area[i-1][j];
         }
     }    
 }
 
-/* Function checks for completed lines and incrementes the score appropriately
- *  n lines = n*100 points
- */
+// Function checks for completed lines and incrementes the score appropriately (n lines = n*100 points)
 void check_lines(char area[][WIDTH], int *score) {
-    running = false;
-
     u_int8_t total_lines = 0;
     u_int8_t row_sum = 0;
 
@@ -486,8 +485,6 @@ void check_lines(char area[][WIDTH], int *score) {
         row_sum = 0;
     }
     *score += (int)total_lines*100;
-
-    running = true;
 }
 
 //Function rotates the block clockwise
@@ -522,7 +519,7 @@ void rotate_block(char area[][WIDTH], struct Position * block) {
 
         //Saving the new position
         if(!(tmp_x >= 0) || !(tmp_x < WIDTH)) is_writable = false; 
-        if(!(tmp_y >= 0) || !(tmp_x < HEIGHT)) is_writable = false; 
+        if(!(tmp_y >= 0) || !(tmp_y < HEIGHT)) is_writable = false; 
 
         tmp_arr[i].x = tmp_x;
         tmp_arr[i].y = tmp_y;
