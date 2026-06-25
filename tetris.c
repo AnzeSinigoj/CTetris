@@ -47,6 +47,7 @@ void rotate_block(char area[][WIDTH], struct Position *block);
 //Score counting functions
 void check_lines(char area[][WIDTH], int *score);
 void clear_line(char area[][WIDTH], size_t line);
+long get_delay(int score);
 
 int main(void) {
     srand(time(NULL));
@@ -69,6 +70,8 @@ int main(void) {
     info.c_lflag &= ~ICANON;
     info.c_cc[VMIN] = 0;
     info.c_cc[VTIME] = 0;
+    info.c_lflag &= ~ECHO;
+    printf("\033[?25l");
     tcsetattr(0, TCSANOW, &info);
 
     struct timespec start_time, stop_time;
@@ -113,7 +116,7 @@ int main(void) {
             default:
                 clock_gettime(CLOCK_MONOTONIC, &stop_time);
                 long enlapsed = (stop_time.tv_sec - start_time.tv_sec) * 1000000L + (stop_time.tv_nsec - start_time.tv_nsec) / 1000;
-                if(enlapsed >= DELAY_2 && !landed){
+                if(enlapsed >= get_delay(score) && !landed){
                     clock_gettime(CLOCK_MONOTONIC, &start_time);
                     can_spawn = move_block(play_area, block, '/');
                     if(can_spawn) landed = true;
@@ -137,7 +140,13 @@ int main(void) {
     //Reseting the terminal back into canonical mode
     tcgetattr(0, &info);
     info.c_lflag |= ICANON;
+    info.c_lflag |= ECHO;
+    printf("\033[?25h");
     tcsetattr(0, TCSANOW, &info);
+
+    //Gameover screen 
+    clear_screen();
+    printf("Game Over!\nScore: %d\n", score);
 
     return 0;
 }
@@ -452,7 +461,23 @@ void spawn_block(char area[][WIDTH], struct Position *block) {
             block[3].x = mid+1;
             break;
     }
+    //Check for gameover    
+    for(int i = 0; i < 4; i++) {
+        if(area[block[i].y][block[i].x] == FULL) {
+            main_loop = false;
+            return;
+        }
+    }
     draw_block(area, block);
+}
+
+// Function returns the gameplay speed per score (each increase in score by 1000 increments the speed by 1)
+long get_delay(int score) {
+    int index = score / 1000;
+    if(index > 9) index = 9; //max speed
+    long delays[] = {DELAY_0, DELAY_1, DELAY_2, DELAY_3, DELAY_4,
+                     DELAY_5, DELAY_6, DELAY_7, DELAY_8, DELAY_9};
+    return delays[index];
 }
 
 // Function clears the specified line and moves the remains of blocks down
