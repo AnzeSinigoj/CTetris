@@ -1,3 +1,5 @@
+#include <stdarg.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -9,8 +11,7 @@
 //Macros
 #define WIDTH  10
 #define HEIGHT 20
-#define EMPTY '.'
-#define FULL '#'
+#define EMPTY 0
 #define DELAY_0 1000000  // 1000 ms
 #define DELAY_1 750000   // 750 ms
 #define DELAY_2 500000   // 500 ms
@@ -24,36 +25,51 @@
 #define FPS_60  16667
 #define FPS_30  33333
 
-//Global vars
-bool main_loop = true;
-
 struct Position {
     u_int8_t x;
     u_int8_t y;
 };
 
+typedef enum {
+    BLACK,
+    RED,
+    GREEN,
+    YELLOW,
+    BLUE,
+    MAGENTA,
+    CYAN,
+    WHITE
+} color;
+
+//Global vars
+bool main_loop = true;
+color current_color;
+
 //Play area operations
 void clear_screen();
 void draw_horizontal_line();
-void draw_area(char area[][WIDTH], int score);
+void draw_area(u_int8_t area[][WIDTH], int score);
 
 //Block operations
-void erase_block(char area[][WIDTH], struct Position *block);
-void draw_block(char area[][WIDTH], struct Position *block);
-bool move_block(char area[][WIDTH], struct Position *block, char direction);
-void spawn_block(char area[][WIDTH], struct Position *block);
-void rotate_block(char area[][WIDTH], struct Position *block);
+void erase_block(u_int8_t area[][WIDTH], struct Position *block);
+void draw_block(u_int8_t area[][WIDTH], struct Position *block);
+bool move_block(u_int8_t area[][WIDTH], struct Position *block, char direction);
+void spawn_block(u_int8_t area[][WIDTH], struct Position *block);
+void rotate_block(u_int8_t area[][WIDTH], struct Position *block);
 
 //Score counting functions
-void check_lines(char area[][WIDTH], int *score);
-void clear_line(char area[][WIDTH], size_t line);
+void check_lines(u_int8_t area[][WIDTH], int *score);
+void clear_line(u_int8_t area[][WIDTH], size_t line);
 long get_delay(int score);
+
+//Rendering
+void cprintf(const color color, const char * fstring, ...);
 
 int main(void) {
     srand(time(NULL));
 
     //Game area declaration
-    char play_area[HEIGHT][WIDTH];
+    u_int8_t play_area[HEIGHT][WIDTH];
 
     //Game area initialization
     for(int i = 0; i < HEIGHT; i++){
@@ -162,15 +178,15 @@ void draw_horizontal_line() {
     printf("+>\n");
 }
 
-void draw_area(char area[][WIDTH], int score) {
+void draw_area(u_int8_t area[][WIDTH], int score) {
     draw_horizontal_line();
     for (int i = 0; i < HEIGHT; i++) {
         printf("<!");
         for (int j = 0; j < WIDTH; j++) {
-            if(area[i][j] == FULL) {
-                printf( " %s ", "■");
+            if(area[i][j] != EMPTY) {
+                cprintf(area[i][j], " %s ", "■");
             } else{
-                printf(" %c ", EMPTY);
+                printf(" %c ", '.');
             }
         }
         printf("!>\n");
@@ -181,7 +197,7 @@ void draw_area(char area[][WIDTH], int score) {
 }
 
 //Deletes block based on coordinates
-void erase_block(char area[][WIDTH], struct Position *block) {
+void erase_block(u_int8_t area[][WIDTH], struct Position *block) {
     for(int i = 0; i < 4; i++) {
         u_int8_t tmp_x = block[i].x;
         u_int8_t tmp_y = block[i].y;
@@ -190,11 +206,11 @@ void erase_block(char area[][WIDTH], struct Position *block) {
 }
 
 //Translates the block coordinates into a drawn block
-void draw_block(char area[][WIDTH], struct Position *block) {
+void draw_block(u_int8_t area[][WIDTH], struct Position *block) {
     for(int i = 0; i < 4; i++) {
         u_int8_t tmp_x = block[i].x;
         u_int8_t tmp_y = block[i].y;
-        area[tmp_y][tmp_x] = FULL;
+        area[tmp_y][tmp_x] = current_color;
     }
 }
 
@@ -203,7 +219,7 @@ void draw_block(char area[][WIDTH], struct Position *block) {
  * inside the bounds and also handles collision with other blocks.
  * Returns true if the block has been placed and its possible to spawn a new one
  */
-bool move_block(char area[][WIDTH], struct Position *block, char direction) {
+bool move_block(u_int8_t area[][WIDTH], struct Position *block, char direction) {
     erase_block(area, block);
 
     bool bounds_ok, collision_ok;
@@ -227,7 +243,7 @@ bool move_block(char area[][WIDTH], struct Position *block, char direction) {
             for(int i = 0; i < 4; i++) {
                 u_int8_t tmp_x = block[i].x - 1; //Check the block after it
                 u_int8_t tmp_y = block[i].y;
-                if(area[tmp_y][tmp_x] == FULL){
+                if(area[tmp_y][tmp_x] != EMPTY){
                     collision_ok = false;
                     break;
                 }
@@ -259,7 +275,7 @@ bool move_block(char area[][WIDTH], struct Position *block, char direction) {
             for(int i = 0; i < 4; i++) {
                 u_int8_t tmp_x = block[i].x + 1; //Check the block after it
                 u_int8_t tmp_y = block[i].y;
-                if(area[tmp_y][tmp_x] == FULL){
+                if(area[tmp_y][tmp_x] != EMPTY){
                     collision_ok = false;
                     break;
                 }
@@ -301,7 +317,7 @@ bool move_block(char area[][WIDTH], struct Position *block, char direction) {
                         break;
                     }
                 }
-                if(!is_self && area[tmp_y][tmp_x] == FULL) {
+                if(!is_self && area[tmp_y][tmp_x] != EMPTY) {
                     collision_ok = false;
                     break;
                 }
@@ -347,7 +363,7 @@ bool move_block(char area[][WIDTH], struct Position *block, char direction) {
                         break;
                     }
                 }
-                if(!is_self && area[tmp_y][tmp_x] == FULL) {
+                if(!is_self && area[tmp_y][tmp_x] != EMPTY) {
                     collision_ok = false;
                     break;
                 }
@@ -378,8 +394,9 @@ bool move_block(char area[][WIDTH], struct Position *block, char direction) {
  * 5 = "squiggly" block facing left
  * 6 = "pyramid"
  */
-void spawn_block(char area[][WIDTH], struct Position *block) {
+void spawn_block(u_int8_t area[][WIDTH], struct Position *block) {
     int block_type = rand() % 7;
+    current_color = block_type + 1;
     uint mid = WIDTH/2;
 
     switch(block_type) {
@@ -463,7 +480,7 @@ void spawn_block(char area[][WIDTH], struct Position *block) {
     }
     //Check for gameover    
     for(int i = 0; i < 4; i++) {
-        if(area[block[i].y][block[i].x] == FULL) {
+        if(area[block[i].y][block[i].x] != EMPTY) {
             main_loop = false;
             return;
         }
@@ -481,7 +498,7 @@ long get_delay(int score) {
 }
 
 // Function clears the specified line and moves the remains of blocks down
-void clear_line(char area[][WIDTH], size_t line) {
+void clear_line(u_int8_t area[][WIDTH], size_t line) {
     //Clear line
     for(size_t i = 0; i < WIDTH; i++) area[line][i] = EMPTY; 
 
@@ -494,14 +511,14 @@ void clear_line(char area[][WIDTH], size_t line) {
 }
 
 // Function checks for completed lines and incrementes the score appropriately (n lines = n*100 points)
-void check_lines(char area[][WIDTH], int *score) {
+void check_lines(u_int8_t area[][WIDTH], int *score) {
     u_int8_t total_lines = 0;
     u_int8_t row_sum = 0;
 
     //Count the score
     for(size_t i = 0; i < HEIGHT; i++) {
         for(size_t j = 0; j < WIDTH; j++) {
-            if(area[i][j] == FULL) row_sum++;
+            if(area[i][j] != EMPTY) row_sum++;
         }
         if(row_sum == WIDTH) {
             clear_line(area, i);
@@ -513,7 +530,7 @@ void check_lines(char area[][WIDTH], int *score) {
 }
 
 //Function rotates the block clockwise
-void rotate_block(char area[][WIDTH], struct Position * block) {
+void rotate_block(u_int8_t area[][WIDTH], struct Position * block) {
     bool check_square_y = (block[0].y == block[1].y) && (block[2].y == block[3].y);
     bool check_square_x = (block[0].x == block[2].x) && (block[1].x == block[3].x);
     if(check_square_x && check_square_y) return; //Do not rotate if its a square
@@ -555,4 +572,18 @@ void rotate_block(char area[][WIDTH], struct Position * block) {
         block[i].y = tmp_arr[i].y;
     }
     draw_block(area, block);
+}
+
+/*
+* This function prints the provided formated string in the wanted color.
+* Requires the color enum.
+*/
+void cprintf(const color color, const char * fstring, ...) {
+    va_list args;
+    va_start(args, fstring);
+    //Since the list is formated in order we can just add the colors
+    printf("\033[%dm", 30 + color);
+    vprintf(fstring, args);
+    printf("\033[0m");
+    va_end(args);
 }
